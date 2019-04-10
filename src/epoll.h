@@ -1,3 +1,4 @@
+#pragma once
 #ifndef EVENTPOLL
 #define EVENTPOLL
 #include "requestData.h"

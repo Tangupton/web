@@ -13,7 +13,7 @@ const int MAX_BUFF = 4096;       //指定每次接受数据的字节
 
 const int AGAIN_MAX_TIMES = 200;  //读取不到网络数据限定的事件(read == 0)
 
-const int PARSE_URI_AGAIN = -1;
+const int PARSE_URI_AGAIN = -1;      //找不到请求行的末尾
 const int PARSE_URI_ERROR = -2;      //不支持的URI
 const int PARSE_URI_SUCCESS = 0;
 
@@ -21,7 +21,7 @@ const int PARSE_HEADER_AGAIN = -1;     //重新开始分析请求头
 const int PARSE_HEADER_ERROR = -2;     //解析包头体时错误
 const int PARSE_HEADER_SUCCESS = 0;
 
-const int ANALYSIS_ERROR = -2;
+const int ANALYSIS_ERROR = -2;      //发送响应报文时出错
 const int ANALYSIS_SUCCESS = 0;
 
 const int METHOD_POST = 1;
@@ -34,8 +34,8 @@ const int EPOLL_WAIT_TIME = 500;  //长连接保持的时间
 class MimeType
 {
     private:
-        static pthread_mutex_t lock;
-        static std::unordered_map<std::string,std::string> mime;
+        static pthread_mutex_t lock;                                //static保证只初始化一次
+        static std::unordered_map<std::string,std::string> mime;    //static，只需赋值一次，后面共享一个拷贝
         MimeType();
         MimeType(const MimeType &m);
     public:
@@ -84,8 +84,8 @@ struct requestData
         int analysisRequest();  //发送响应报文
     
     public:
-        requestData();
-        requestData(int _epollfd,int _fd,std::string _path);
+        requestData();                  //给lfd构造
+        requestData(int _epollfd,int _fd,std::string _path);    //给clientfd构造用
         ~requestData();
         void addTimer(mytimer* mytimer);
         void reset();
@@ -98,23 +98,40 @@ struct requestData
 
 struct mytimer
 {
-    bool deleted;
+    bool deleted;               //记录是否在队列中被删除了
     size_t expired_time;
     requestData* request_data;
 
     mytimer(requestData* _request_data,int timeout);
     ~mytimer();
-    void update(int timeout);
-    bool isvalid();
-    void clearReq();
-    void setDeleted();
-    bool isDeleted() const;
-    size_t getExpTime() const;
+    void update(int timeout);   //重设超时时间，指定timeout
+    bool isvalid();             //检查是否超时
+    void clearReq();            //超时的话把request_data置为NULL
+    void setDeleted();          //如果超时，需要deleted设置为true状态
+    bool isDeleted() const;     //查看deleted状态
+    size_t getExpTime() const;  //查看超时的时间
 };
 
 struct timerCmp
 {
     bool operator()(const mytimer* a,const mytimer* b) const;
+};
+
+
+//RAII,既避免繁琐的上锁解锁操作，又保证资源及时得到释放
+class MutexLockGuard
+{
+    public:
+        explicit MutexLockGuard();
+        ~MutexLockGuard();
+
+    private:
+        static pthread_mutex_t lock;
+
+    //不能通过复制构造函数和赋值操作符创建
+    private:
+        MutexLockGuard(const MutexLockGuard&);
+        MutexLockGuard& operator=(const MutexLockGuard&);
 };
 
 #endif

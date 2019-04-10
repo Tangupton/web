@@ -28,7 +28,7 @@ const string PATH = "/";
 
 const int TIMER_TIME_OUT = 500;
 
-extern pthread_mutex_t qlock;
+//extern pthread_mutex_t qlock;
 extern struct epoll_event* events;
 void acceptConnection(int listen_fd,int epoll_fd,const string& path);
 
@@ -88,14 +88,16 @@ void acceptConnection(int listen_fd,int epoll_fd,const string& path)
 
         requestData* req_info = new requestData(epoll_fd,accept_fd,path);
 
+        //保证一个socket连接在任一时刻只被一个线程处理
         __uint32_t _epo_event = EPOLLIN | EPOLLET | EPOLLONESHOT;
         epoll_add(epoll_fd,accept_fd,static_cast<void*>(req_info),_epo_event);
         //新增事件信息
         mytimer* mtimer = new mytimer(req_info,TIMER_TIME_OUT);
         req_info->addTimer(mtimer);
-        pthread_mutex_lock(&qlock);
+        //pthread_mutex_lock(&qlock);
+        MutexLockGuard();
         myTimerQueue.push(mtimer);
-        pthread_mutex_unlock(&qlock);
+        //pthread_mutex_unlock(&qlock);
     }
 }
 
@@ -131,7 +133,8 @@ void handle_events(int epoll_fd,int listen_fd,struct epoll_event* events,int eve
 
 void handle_expired_event()
 {
-    pthread_mutex_lock(&qlock);
+    //pthread_mutex_lock(&qlock);
+    MutexLockGuard();
     while(!myTimerQueue.empty())
     {
         mytimer* ptimer_now = myTimerQueue.top();
@@ -150,7 +153,7 @@ void handle_expired_event()
             break;
         }
     }
-    pthread_mutex_unlock(&qlock);
+    //pthread_mutex_unlock(&qlock);
 }
 
 int main()

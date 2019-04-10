@@ -21,8 +21,9 @@
 #include <iostream>
 using namespace std;
 
-pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t  MimeType::lock = PTHREAD_MUTEX_INITIALIZER;
+//pthread_mutex_t qlock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t MutexLockGuard::lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t MimeType::lock = PTHREAD_MUTEX_INITIALIZER;
 std::unordered_map<std::string,std::string> MimeType::mime;
 
 //suffix为 "GET /filename HTTP/1.1" 中的filename
@@ -244,11 +245,15 @@ void requestData::handleRequest()
     }
 
     //新增时间信息
-    pthread_mutex_lock(&qlock);
+    //pthread_mutex_lock(&qlock);
     mytimer* mtimer = new mytimer(this,500);
     timer = mtimer;
-    myTimerQueue.push(mtimer);
-    pthread_mutex_unlock(&qlock);
+    {
+        MutexLockGuard();
+        myTimerQueue.push(mtimer);
+    }
+    //myTimerQueue.push(mtimer);
+    //pthread_mutex_unlock(&qlock);
 
     __uint32_t _epo_event = EPOLLIN | EPOLLET | EPOLLONESHOT;
     int ret = epoll_mod(epollfd,fd,static_cast<void*>(this),_epo_event);
@@ -580,7 +585,7 @@ void requestData::handleError(int fd,int err_num,string short_msg)
 
 mytimer::mytimer(requestData* _request_data,int timeout):deleted(false),request_data(_request_data)
 {
-    struct timeval now;
+    struct timeval now;  //tv_sec秒、tv_usec微妙
     gettimeofday(&now,NULL);
     //以毫秒计
     expired_time = ((now.tv_sec*1000)+(now.tv_usec/1000))+timeout;
@@ -644,4 +649,13 @@ size_t mytimer::getExpTime() const
 bool timerCmp::operator()(const mytimer *a,const mytimer *b)const
 {
     return a->getExpTime() > b->getExpTime();
+}
+
+MutexLockGuard::MutexLockGuard()
+{
+    pthread_mutex_lock(&lock);
+}
+MutexLockGuard::~MutexLockGuard()
+{
+    pthread_mutex_unlock(&lock);
 }
