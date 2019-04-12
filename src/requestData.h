@@ -79,7 +79,7 @@ private:
     bool isfinish;
     bool keep_alive;
     std::unordered_map<std::string, std::string> headers;
-    std::weak_ptr<mytimer> timer;
+    std::weak_ptr<mytimer> timer;                             //指向时间戳
 
 private:
     int parse_URI();                                          //分析请求行

@@ -16,6 +16,10 @@ const int THREADPOOL_GRACEFUL = 1;
 const int MAX_THREADS = 1024;                       //线程池允许的最大线程数
 const int MAX_QUEUE = 65535;                        //任务队列的最大值
 
+//default_value
+const int default_thread_count = 4;
+const int default_queue_size = 1024;
+
 typedef enum 
 {
     immediate_shutdown = 1,
@@ -28,7 +32,7 @@ struct ThreadPoolTask
     std::shared_ptr<void> args;
 };
 
-void myHandler(std::shared_ptr<void> req);
+void myHandler(std::shared_ptr<void> req);          //默认执行的回调函数
 class ThreadPool
 {
 private:

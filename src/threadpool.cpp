@@ -18,10 +18,11 @@ int ThreadPool::threadpool_create(int _thread_count, int _queue_size)
     bool err = false;
     do
     {
+        //如果参数不符合，则给默认值
         if(_thread_count <= 0 || _thread_count > MAX_THREADS || _queue_size <= 0 || _queue_size > MAX_QUEUE) 
         {
-            _thread_count = 4;
-            _queue_size = 1024;
+            _thread_count = default_thread_count;
+            _queue_size = default_queue_size;
         }
     
         thread_count = 0;
@@ -175,6 +176,7 @@ void *ThreadPool::threadpool_thread(void *args)
         if((shutdown == immediate_shutdown) ||
            ((shutdown == graceful_shutdown) && (count == 0)))
         {
+            //关闭了，退出，但此时还没解锁
             break;
         }
         task.fun = queue[head].fun;
@@ -189,6 +191,7 @@ void *ThreadPool::threadpool_thread(void *args)
 
     --started;
 
+    //跳出外面后解锁
     pthread_mutex_unlock(&lock);
     pthread_exit(NULL);
     return(NULL);
