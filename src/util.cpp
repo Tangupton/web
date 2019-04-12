@@ -5,59 +5,60 @@
 #include <errno.h>
 #include <string.h>
 
-ssize_t readn(int fd,void* buff,size_t n)
+ssize_t readn(int fd, void *buff, size_t n)
 {
-    size_t nleft = n;      //要求读取的字节数
-    ssize_t nread = 0;     //每次调用read能读到的字节数
-    ssize_t readSum = 0;    //已经读取的字节数
-    char* ptr = (char*)buff;
-    while(nleft > 0)
+    size_t nleft = n;
+    ssize_t nread = 0;
+    ssize_t readSum = 0;
+    char *ptr = (char*)buff;
+    while (nleft > 0)
     {
-        if((nread = read(fd,ptr,nleft)) < 0)
+        if ((nread = read(fd, ptr, nleft)) < 0)
         {
-            if(errno == EINTR)           //信号中断
+            if (errno == EINTR)
                 nread = 0;
-            else if(errno == EAGAIN)
+            else if (errno == EAGAIN)
             {
                 return readSum;
             }
             else
             {
                 return -1;
-            }
+            }  
         }
-        else if(nread == 0)
+        else if (nread == 0)
             break;
-        readSum+=nread;
-        nleft-=nread;
-        ptr+=nread;
+        readSum += nread;
+        nleft -= nread;
+        ptr += nread;
     }
     return readSum;
 }
 
-ssize_t writen(int fd,void* buff,size_t n)
+ssize_t writen(int fd, void *buff, size_t n)
 {
     size_t nleft = n;
     ssize_t nwritten = 0;
     ssize_t writeSum = 0;
-    char* ptr = (char*)buff;
-    while(nleft > 0)
+    char *ptr = (char*)buff;
+    while (nleft > 0)
     {
-        if((nwritten = write(fd,ptr,nleft)) <= 0)
+        if ((nwritten = write(fd, ptr, nleft)) <= 0)
         {
-            if(nwritten < 0)
+            if (nwritten < 0)
             {
-                if(errno == EINTR || errno == EAGAIN)
+                if (errno == EINTR || errno == EAGAIN)
                 {
                     nwritten = 0;
                     continue;
                 }
-                else return -1;
+                else
+                    return -1;
             }
         }
-        writeSum+=nwritten;
-        nleft-=nwritten;
-        ptr+=nwritten;
+        writeSum += nwritten;
+        nleft -= nwritten;
+        ptr += nwritten;
     }
     return writeSum;
 }
@@ -65,20 +66,21 @@ ssize_t writen(int fd,void* buff,size_t n)
 void handle_for_sigpipe()
 {
     struct sigaction sa;
-    memset(&sa,'\0',sizeof(sa));
+    memset(&sa, '\0', sizeof(sa));
     sa.sa_handler = SIG_IGN;
     sa.sa_flags = 0;
-    if(sigaction(SIGPIPE,&sa,NULL))
+    if(sigaction(SIGPIPE, &sa, NULL))
         return;
 }
 
 int setSocketNonBlocking(int fd)
 {
-    int flag = fcntl(fd,F_GETFL,0);
+    int flag = fcntl(fd, F_GETFL, 0);
     if(flag == -1)
         return -1;
+
     flag |= O_NONBLOCK;
-    if(fcntl(fd,F_SETFL,flag) == -1)
+    if(fcntl(fd, F_SETFL, flag) == -1)
         return -1;
     return 0;
 }

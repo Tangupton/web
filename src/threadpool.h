@@ -1,50 +1,68 @@
-#ifndef THREADPOOL
-#define THREADPOOL
+#pragma once
 #include "requestData.h"
 #include <pthread.h>
+#include <functional>
+#include <memory>
+#include <vector>
 
-const int THREADPOOL_INVALID = -1;      //线程池非法操作
-const int THREADPOOL_LOCK_FAILURE = -2;  //获取锁出错
+
+const int THREADPOOL_INVALID = -1;
+const int THREADPOOL_LOCK_FAILURE = -2;
 const int THREADPOOL_QUEUE_FULL = -3;
 const int THREADPOOL_SHUTDOWN = -4;
 const int THREADPOOL_THREAD_FAILURE = -5;
-const int THREADPOOL_GRACEFIL = 1;
+const int THREADPOOL_GRACEFUL = 1;
 
-const int MAX_THREADS = 1024; //线程池允许的最大线程数
-const int MAX_QUEUE = 65535;  //任务队列的最大值
+const int MAX_THREADS = 1024;
+const int MAX_QUEUE = 65535;
 
-//关闭的方式
-typedef enum
+typedef enum 
 {
     immediate_shutdown = 1,
-    graceful_shutdown = 2
-}threadpool_shutdown_t;
+    graceful_shutdown  = 2
+} threadpool_shutdown_t;
 
-typedef struct 
+struct ThreadPoolTask
 {
-    void (*function)(void*);
-    void* arg;
-}threadpool_task_t;
-
-struct threadpool_t
-{
-    pthread_mutex_t lock;
-    pthread_cond_t notify;
-    pthread_t* threads;
-    threadpool_task_t* queue;
-    int thread_count;    //线程池实时的线程数
-    int queue_size;
-    int head;
-    int tail;
-    int count;          //记录实时任务队列数量
-    int shutdown;
-    int started;
+    std::function<void(std::shared_ptr<void>)> fun;
+    std::shared_ptr<void> args;
 };
 
-threadpool_t* threadpool_create(int thread_count,int queue_size,int flags);
-int threadpool_add(threadpool_t* pool,void(*function)(void*),void* arg,int flags);
-int threadpool_destroy(threadpool_t* pool,int flags);
-int threadpool_free(threadpool_t* pool);
-void* threadpool_thread(void* threadpool); //消费者
-
-#endif
+/**
+ *  @struct threadpool
+ *  @brief The threadpool struct
+ *
+ *  @var notify       Condition variable to notify worker threads.
+ *  @var threads      Array containing worker threads ID.
+ *  @var thread_count Number of threads
+ *  @var queue        Array containing the task queue.
+ *  @var queue_size   Size of the task queue.
+ *  @var head         Index of the first element.
+ *  @var tail         Index of the next element.
+ *  @var count        Number of pending tasks
+ *  @var shutdown     Flag indicating if the pool is shutting down
+ *  @var started      Number of started threads
+ */
+void myHandler(std::shared_ptr<void> req);
+class ThreadPool
+{
+private:
+    static pthread_mutex_t lock;
+    static pthread_cond_t notify;
+    static std::vector<pthread_t> threads;
+    static std::vector<ThreadPoolTask> queue;
+    static int thread_count;
+    static int queue_size;
+    static int head;
+    // tail 指向尾节点的下一节点
+    static int tail;
+    static int count;
+    static int shutdown;
+    static int started;
+public:
+    static int threadpool_create(int _thread_count, int _queue_size);
+    static int threadpool_add(std::shared_ptr<void> args, std::function<void(std::shared_ptr<void>)> fun = myHandler);
+    static int threadpool_destroy();
+    static int threadpool_free();
+    static void *threadpool_thread(void *args);
+};
