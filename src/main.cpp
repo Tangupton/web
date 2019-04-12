@@ -27,7 +27,7 @@ const int PORT = 8888;
 const int ASK_STATIC_FILE = 1;
 const int ASK_IMAGE_STITCH = 2;
 
-const string PATH = "/";
+const string PATH = "/";    //默认路径
 
 const int TIMER_TIME_OUT = 500;
 
@@ -39,11 +39,9 @@ extern std::priority_queue<shared_ptr<mytimer>, std::deque<shared_ptr<mytimer>>,
 
 int socket_bind_listen(int port)
 {
-    // 检查port值，取正确区间范围
     if (port < 1024 || port > 65535)
         return -1;
 
-    // 创建socket(IPv4 + TCP)，返回监听描述符
     int listen_fd = 0;
     if((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         return -1;
@@ -85,12 +83,10 @@ void handle_expired_event()
         if (ptimer_now->isDeleted())
         {
             myTimerQueue.pop();
-            //delete ptimer_now;
         }
         else if (ptimer_now->isvalid() == false)
         {
             myTimerQueue.pop();
-            //delete ptimer_now;
         }
         else
         {

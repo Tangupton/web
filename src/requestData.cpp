@@ -26,6 +26,8 @@ pthread_mutex_t MutexLockGuard::lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t MimeType::lock = PTHREAD_MUTEX_INITIALIZER;
 std::unordered_map<std::string, std::string> MimeType::mime;
 
+
+//suffix为 "GET /filename HTTP/1.1" 中的filename
 std::string MimeType::getMime(const std::string &suffix)
 {
     if (mime.size() == 0)
@@ -173,7 +175,7 @@ void requestData::handleRequest()
                 isError = true;
             break;
         }
-        string now_read(buff, buff + read_num);
+        string now_read(buff, buff + read_num);     //每次读到的内容
         content += now_read;
 
         if (state == STATE_PARSE_URI)
@@ -203,6 +205,8 @@ void requestData::handleRequest()
                 isError = true;
                 break;
             }
+
+            //是否需要判断请求体
             if(method == METHOD_POST)
             {
                 state = STATE_RECV_BODY;
@@ -293,6 +297,7 @@ void requestData::handleRequest()
 int requestData::parse_URI()
 {
     string &str = content;
+    //定位到请求行的末尾
     // 读到完整的请求行再开始解析请求
     int pos = str.find('\r', now_read_pos);
     if (pos < 0)
@@ -325,6 +330,7 @@ int requestData::parse_URI()
     }
     //printf("method = %d\n", method);
     // filename
+    //此处的‘/’后面紧接着的是filename(如果有)
     pos = request_line.find("/", pos);
     if (pos < 0)
     {
@@ -340,10 +346,10 @@ int requestData::parse_URI()
             if (_pos - pos > 1)
             {
                 file_name = request_line.substr(pos + 1, _pos - pos - 1);
-                int __pos = file_name.find('?');
+                int __pos = file_name.find('?');    //‘?’后面部分为参数，多个参数用‘&’分隔开
                 if (__pos >= 0)
                 {
-                    file_name = file_name.substr(0, __pos);
+                    file_name = file_name.substr(0, __pos); //去掉参数部分的filename
                 }
             }
                 
@@ -376,15 +382,17 @@ int requestData::parse_URI()
                 return PARSE_URI_ERROR;
         }
     }
+    //分析完请求行了，状态变成分析请求头
     state = STATE_PARSE_HEADERS;
     return PARSE_URI_SUCCESS;
 }
 
 int requestData::parse_Headers()
 {
-    string &str = content;
+    string &str = content;      //str is refere
+    //key-value: key is str[key_start,key_end],value is str[value_start,value_end]
     int key_start = -1, key_end = -1, value_start = -1, value_end = -1;
-    int now_read_line_begin = 0;
+    int now_read_line_begin = 0;                 //请求头中每行key-value的开头pos
     bool notFinish = true;
     for (int i = 0; i < str.size() && notFinish; ++i)
     {
@@ -401,7 +409,7 @@ int requestData::parse_Headers()
             }
             case h_key:
             {
-                if (str[i] == ':')
+                if (str[i] == ':')                  //key已经分析完毕，开始分析value
                 {
                     key_end = i;
                     if (key_end - key_start <= 0)
@@ -414,7 +422,7 @@ int requestData::parse_Headers()
             }
             case h_colon:
             {
-                if (str[i] == ' ')
+                if (str[i] == ' ')                  //":"后面应该有一个空格，否则错误
                 {
                     h_state = h_spaces_after_colon;
                 }
@@ -430,14 +438,14 @@ int requestData::parse_Headers()
             }
             case h_value:
             {
-                if (str[i] == '\r')
+                if (str[i] == '\r')                 //value已经分析完毕,下一步需要将key和value关联起来
                 {
                     h_state = h_CR;
                     value_end = i;
                     if (value_end - value_start <= 0)
                         return PARSE_HEADER_ERROR;
                 }
-                else if (i - value_start > 255)
+                else if (i - value_start > 255)     //key-value中的value不能超过255
                     return PARSE_HEADER_ERROR;
                 break;  
             }
@@ -457,11 +465,11 @@ int requestData::parse_Headers()
             }
             case h_LF:
             {
-                if (str[i] == '\r')
+                if (str[i] == '\r')                 //整个请求头都分析完成了，跳下一步
                 {
                     h_state = h_end_CR;
                 }
-                else
+                else                                //没分析完，调到h_key继续从key开始分析
                 {
                     key_start = i;
                     h_state = h_key;
@@ -470,7 +478,7 @@ int requestData::parse_Headers()
             }
             case h_end_CR:
             {
-                if (str[i] == '\n')
+                if (str[i] == '\n')                 //\r后面理应紧接\n否则出错
                 {
                     h_state = h_end_LF;
                 }
@@ -482,7 +490,7 @@ int requestData::parse_Headers()
             {
                 notFinish = false;
                 key_start = i;
-                now_read_line_begin = i;
+                now_read_line_begin = i;            //空行的开头pos
                 break;
             }
         }
@@ -625,13 +633,6 @@ mytimer::~mytimer()
     {
         Epoll::epoll_del(request_data->getFd(), EPOLLIN | EPOLLET | EPOLLONESHOT);
     }
-    //request_data.reset();
-    // if (request_data)
-    // {
-    //     cout << "request_data=" << request_data << endl;
-    //     delete request_data;
-    //     request_data = NULL;
-    // }
 }
 
 void mytimer::update(int timeout)
@@ -657,6 +658,8 @@ bool mytimer::isvalid()
     }
 }
 
+
+//分离
 void mytimer::clearReq()
 {
     request_data.reset();
