@@ -1,0 +1,8 @@
+v1.2
+1. 将普通指针可以改成shared_ptr，不需要delete，避免因粗心忘记delete释放内存而造成内存泄漏。(RAII)
+2. 将threadpool、requestData、Mime、Epoll从struct改成class,符合面向对象原则,便于后面的迭代与维护。
+3. 将主函数中accpet的操作放进Epoll类里面，成为一个成员函数。
+4. 需要注意的是，由于把普通指针都改成了智能指针，class requestData 与 struct mytimer存在互相指向的指针，为了防止内存泄露，需要用到week_ptr(不影响)。
+5. 如果分配的线程池大小或任务队列大小不符合规范，则取默认值。
+6. 设定一个默认的回调函数。
+7. 回调函数：用function代替一般的函数指针。

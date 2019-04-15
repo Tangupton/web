@@ -18,10 +18,10 @@
 
 using namespace std;
 
-static const int MAXEVENTS = 5000;
-static const int LISTENQ = 1024;
-const int THREADPOOL_THREAD_NUM = 4;
-const int QUEUE_SIZE = 65535;
+static const int MAXEVENTS = 5000;      //红黑树结点个数
+static const int LISTENQ = 1024;        //就绪队列个数
+const int THREADPOOL_THREAD_NUM = 4;    
+const int QUEUE_SIZE = 65535;           //任务队列的个数
 
 const int PORT = 8888;
 const int ASK_STATIC_FILE = 1;

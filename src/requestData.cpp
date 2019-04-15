@@ -113,7 +113,7 @@ int requestData::getFd()
 {
     return fd;
 }
-void requestData::setFd(int _fd)
+void requestData::setFd(int _fd)    //listenfd use
 {
     fd = _fd;
 }
