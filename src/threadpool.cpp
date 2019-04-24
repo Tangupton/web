@@ -21,8 +21,8 @@ int ThreadPool::threadpool_create(int _thread_count, int _queue_size)
         //如果参数不符合，则给默认值
         if(_thread_count <= 0 || _thread_count > MAX_THREADS || _queue_size <= 0 || _queue_size > MAX_QUEUE) 
         {
-            _thread_count = default_thread_count;
-            _queue_size = default_queue_size;
+            _thread_count = 4;
+            _queue_size = 1024;
         }
     
         thread_count = 0;
@@ -56,8 +56,13 @@ int ThreadPool::threadpool_create(int _thread_count, int _queue_size)
 
 void myHandler(std::shared_ptr<void> req)
 {
-    std::shared_ptr<requestData> request = std::static_pointer_cast<requestData>(req);
-    request->handleRequest();
+    //static_cast<RequestData>(req);
+    std::shared_ptr<RequestData> request = std::static_pointer_cast<RequestData>(req);
+    if (request->canWrite())
+        request->handleWrite();
+    else if (request->canRead())
+        request->handleRead();
+    request->handleConn();
 }
 
 int ThreadPool::threadpool_add(std::shared_ptr<void> args, std::function<void(std::shared_ptr<void>)> fun)
@@ -98,36 +103,33 @@ int ThreadPool::threadpool_add(std::shared_ptr<void> args, std::function<void(st
     return err;
 }
 
-/*
-int threadpool_destroy(threadpool_t *pool, int flags)
+
+int ThreadPool::threadpool_destroy(ShutDownOption shutdown_option)
 {
     printf("Thread pool destroy !\n");
     int i, err = 0;
 
-    if(pthread_mutex_lock(&(pool->lock)) != 0) 
+    if(pthread_mutex_lock(&lock) != 0) 
     {
         return THREADPOOL_LOCK_FAILURE;
     }
-
     do 
     {
-        if(pool->shutdown) {
+        if(shutdown) {
             err = THREADPOOL_SHUTDOWN;
             break;
         }
+        shutdown = shutdown_option;
 
-        pool->shutdown = (flags & THREADPOOL_GRACEFUL) ?
-            graceful_shutdown : immediate_shutdown;
-
-        if((pthread_cond_broadcast(&(pool->notify)) != 0) ||
-           (pthread_mutex_unlock(&(pool->lock)) != 0)) {
+        if((pthread_cond_broadcast(&notify) != 0) ||
+           (pthread_mutex_unlock(&lock) != 0)) {
             err = THREADPOOL_LOCK_FAILURE;
             break;
         }
 
-        for(i = 0; i < pool->thread_count; ++i)
+        for(i = 0; i < thread_count; ++i)
         {
-            if(pthread_join(pool->threads[i], NULL) != 0)
+            if(pthread_join(threads[i], NULL) != 0)
             {
                 err = THREADPOOL_THREAD_FAILURE;
             }
@@ -136,32 +138,21 @@ int threadpool_destroy(threadpool_t *pool, int flags)
 
     if(!err) 
     {
-        threadpool_free(pool);
+        threadpool_free();
     }
     return err;
 }
 
-int threadpool_free(threadpool_t *pool)
+int ThreadPool::threadpool_free()
 {
-    if(pool == NULL || pool->started > 0)
-    {
+    if(started > 0)
         return -1;
-    }
-
-    if(pool->threads) 
-    {
-        free(pool->threads);
-        free(pool->queue);
- 
-
-        pthread_mutex_lock(&(pool->lock));
-        pthread_mutex_destroy(&(pool->lock));
-        pthread_cond_destroy(&(pool->notify));
-    }
-    free(pool);    
+    pthread_mutex_lock(&lock);
+    pthread_mutex_destroy(&lock);
+    pthread_cond_destroy(&notify);
     return 0;
 }
-*/
+
 
 void *ThreadPool::threadpool_thread(void *args)
 {
@@ -169,14 +160,15 @@ void *ThreadPool::threadpool_thread(void *args)
     {
         ThreadPoolTask task;
         pthread_mutex_lock(&lock);
+        //taskqueue is empty
         while((count == 0) && (!shutdown)) 
         {
             pthread_cond_wait(&notify, &lock);
         }
+        //the ptthread_pool is shutdown
         if((shutdown == immediate_shutdown) ||
            ((shutdown == graceful_shutdown) && (count == 0)))
         {
-            //关闭了，退出，但此时还没解锁
             break;
         }
         task.fun = queue[head].fun;
@@ -188,11 +180,9 @@ void *ThreadPool::threadpool_thread(void *args)
         pthread_mutex_unlock(&lock);
         (task.fun)(task.args);
     }
-
     --started;
-
-    //跳出外面后解锁
     pthread_mutex_unlock(&lock);
+    printf("This threadpool thread finishs!\n");
     pthread_exit(NULL);
     return(NULL);
 }
